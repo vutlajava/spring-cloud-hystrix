@@ -1,0 +1,64 @@
+spring:
+  application:
+    name: GATEWAY-SERVICE
+  config:
+    import: configserver:http://localhost:9196
+  cloud:
+    gateway:
+      routes:
+        - id: order-service
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/order/**
+          filters:
+            - AuthenticationFilter
+            - name: CircuitBreaker
+              args:
+               name: order-service
+               fallbackUri: forward:/orderFallBack
+        - id: payment-service
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/payment/**
+          filters:
+            - AuthenticationFilter
+            - name: CircuitBreaker
+              args:
+                name: payment-service
+                fallbackUri: forward:/paymentFallBack
+        - id: identity-service
+          uri: lb://IDENTITY-SERVICE
+          predicates:
+            - Path=/auth/**
+server:
+  port: 8989
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+resilience4j:
+  circuitbreaker:
+    instances:
+      order-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+      payment-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+  timelimiter:
+    instances:
+      order-service:
+        timeoutDuration: 3s
+      payment-service:
+        timeoutDuration: 3s
+
+  endpoint:
+    prometheus:
+      enabled: true
+
+
+
